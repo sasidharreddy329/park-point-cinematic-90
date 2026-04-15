@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 
 const lots = [
   {
+    id: "central-plaza",
     name: "Central Plaza",
     location: "Downtown, NY",
     price: "$5/hr",
@@ -11,6 +12,7 @@ const lots = [
     color: "bg-slate-800",
   },
   {
+    id: "westside-station",
     name: "Westside Station",
     location: "West End, NY",
     price: "$3/hr",
@@ -18,6 +20,7 @@ const lots = [
     color: "bg-slate-700",
   },
   {
+    id: "market-street",
     name: "Market Street",
     location: "Downtown, NY",
     price: "$4/hr",
@@ -25,6 +28,7 @@ const lots = [
     color: "bg-slate-600",
   },
   {
+    id: "airport-long-term",
     name: "Airport Long Term",
     location: "JFK Airport",
     price: "$12/day",
@@ -36,6 +40,10 @@ const lots = [
 const FeaturedParkingSection = () => {
   const navigate = useNavigate();
 
+  const handleSelectLot = (lot: typeof lots[0]) => {
+    navigate(`/drive?lot=${encodeURIComponent(lot.name)}`);
+  };
+
   return (
     <section className="py-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
       <div className="text-center mb-14">
@@ -45,7 +53,7 @@ const FeaturedParkingSection = () => {
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {lots.map((lot) => (
-          <div key={lot.name} className="bg-card border border-border rounded-2xl overflow-hidden hover:shadow-lg transition-shadow">
+          <div key={lot.id} className="bg-card border border-border rounded-2xl overflow-hidden hover:shadow-lg transition-shadow group">
             <div className={`${lot.color} h-36 flex items-center justify-center`}>
               <div className="w-14 h-14 bg-white/10 backdrop-blur rounded-xl flex items-center justify-center">
                 <span className="text-white font-bold text-xl">P</span>
@@ -68,11 +76,10 @@ const FeaturedParkingSection = () => {
                 ))}
               </div>
               <Button
-                variant="outline"
-                className="w-full rounded-xl"
-                onClick={() => navigate("/find-parking")}
+                className="w-full rounded-xl bg-primary text-primary-foreground hover:bg-primary/90"
+                onClick={() => handleSelectLot(lot)}
               >
-                Details
+                Book Now
               </Button>
             </div>
           </div>

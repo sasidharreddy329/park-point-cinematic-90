@@ -1,8 +1,10 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Car, MapPin, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
+import { motion } from "framer-motion";
 
 type Slot = {
   id: string;
@@ -25,6 +27,8 @@ const slotsB: Slot[] = [
 ];
 
 const FindParking = () => {
+  const [searchParams] = useSearchParams();
+  const lotName = searchParams.get("lot") || "Downtown Plaza Garage";
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const [booked, setBooked] = useState(false);
 
@@ -38,12 +42,15 @@ const FindParking = () => {
     }
   };
 
-  const SlotCard = ({ slot }: { slot: Slot }) => {
+  const SlotCard = ({ slot, index }: { slot: Slot; index: number }) => {
     const isOccupied = slot.status === "occupied";
     const isSelected = selectedSlot === slot.id;
 
     return (
-      <button
+      <motion.button
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: index * 0.08, duration: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
         onClick={() => !isOccupied && setSelectedSlot(slot.id)}
         disabled={isOccupied}
         className={`relative w-full aspect-[3/4] rounded-xl border-2 transition-all flex flex-col items-center justify-center gap-2 ${
@@ -55,13 +62,18 @@ const FindParking = () => {
         }`}
       >
         {isSelected && (
-          <div className="absolute top-2 right-2">
+          <motion.div
+            className="absolute top-2 right-2"
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ type: "spring", stiffness: 500, damping: 25 }}
+          >
             <CheckCircle2 className="w-5 h-5 text-primary" />
-          </div>
+          </motion.div>
         )}
         <span className="text-sm font-semibold text-foreground">{slot.label}</span>
         {isOccupied && <Car className="w-8 h-8 text-muted-foreground" />}
-      </button>
+      </motion.button>
     );
   };
 
@@ -69,15 +81,22 @@ const FindParking = () => {
     <div className="min-h-screen bg-background">
       <Navbar />
       <div className="pt-24 pb-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >
+          <h1 className="text-2xl font-bold text-foreground mb-1">Select Your Parking Spot</h1>
+          <p className="text-muted-foreground text-sm mb-8">{lotName}</p>
+        </motion.div>
+
         <div className="grid lg:grid-cols-3 gap-10">
           {/* Parking Grid */}
           <div className="lg:col-span-2">
-            <h1 className="text-2xl font-bold text-foreground mb-8">Select Your Parking Spot</h1>
-
             {/* Row A */}
             <div className="grid grid-cols-4 gap-4 mb-4">
-              {slotsA.map((slot) => (
-                <SlotCard key={slot.id} slot={slot} />
+              {slotsA.map((slot, i) => (
+                <SlotCard key={slot.id} slot={slot} index={i} />
               ))}
             </div>
 
@@ -89,8 +108,8 @@ const FindParking = () => {
 
             {/* Row B */}
             <div className="grid grid-cols-4 gap-4">
-              {slotsB.map((slot) => (
-                <SlotCard key={slot.id} slot={slot} />
+              {slotsB.map((slot, i) => (
+                <SlotCard key={slot.id} slot={slot} index={i + 4} />
               ))}
             </div>
 
@@ -113,17 +132,27 @@ const FindParking = () => {
 
           {/* Booking Summary */}
           <div className="lg:col-span-1">
-            <div className="bg-card border border-border rounded-2xl p-6 sticky top-24">
+            <motion.div
+              className="bg-card border border-border rounded-2xl p-6 sticky top-24"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.3, duration: 0.5 }}
+            >
               <h2 className="text-xl font-bold text-foreground mb-6">Booking Summary</h2>
 
               {selected ? (
-                <>
+                <motion.div
+                  key={selected.id}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.3 }}
+                >
                   <div className="flex items-start gap-3 mb-6">
                     <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center shrink-0">
                       <MapPin className="w-5 h-5 text-primary-foreground" />
                     </div>
                     <div>
-                      <p className="font-semibold text-foreground">Downtown Plaza Garage</p>
+                      <p className="font-semibold text-foreground">{lotName}</p>
                       <p className="text-xs text-muted-foreground">123 Market St, San Francisco</p>
                     </div>
                   </div>
@@ -173,14 +202,14 @@ const FindParking = () => {
                   <p className="text-xs text-muted-foreground text-center mt-3">
                     Secure payment powered by Stripe
                   </p>
-                </>
+                </motion.div>
               ) : (
                 <div className="text-center py-10">
                   <Car className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
                   <p className="text-muted-foreground text-sm">Select a parking spot to see booking details</p>
                 </div>
               )}
-            </div>
+            </motion.div>
           </div>
         </div>
       </div>
