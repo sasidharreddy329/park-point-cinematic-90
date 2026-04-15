@@ -1,16 +1,63 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { useState, useEffect, useCallback } from "react";
+import CinematicScene from "@/components/3d/CinematicScene";
+import OverlayUI from "@/components/OverlayUI";
+import BookingModal from "@/components/ui/BookingModal";
 
-// IMPORTANT: Fully REPLACE this with your own code
-const PlaceholderIndex = () => {
-  // PLACEHOLDER: Replace this entire return statement with the user's app.
-  // The inline background color is intentionally not part of the design system.
+const Index = () => {
+  const [scrollProgress, setScrollProgress] = useState(0);
+  const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
+  const [showModal, setShowModal] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollHeight = document.documentElement.scrollHeight - window.innerHeight;
+      const progress = Math.min(window.scrollY / scrollHeight, 1);
+      setScrollProgress(progress);
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  const handleSlotClick = useCallback((id: string) => {
+    setSelectedSlot(id);
+    setShowModal(true);
+  }, []);
+
+  const handleBook = useCallback((slotId: string, duration: number) => {
+    console.log(`Booked slot ${slotId} for ${duration} minutes`);
+  }, []);
+
+  const handleCloseModal = useCallback(() => {
+    setShowModal(false);
+    setSelectedSlot(null);
+  }, []);
+
   return (
-    <div className="flex min-h-screen items-center justify-center" style={{ backgroundColor: '#fcfbf8' }}>
-      <img data-lovable-blank-page-placeholder="REMOVE_THIS" src="/placeholder.svg" alt="Your app will live here!" />
-    </div>
+    <>
+      {/* Scroll container - 6x viewport for 6 scenes */}
+      <div style={{ height: "600vh" }} />
+
+      <CinematicScene
+        scrollProgress={scrollProgress}
+        selectedSlot={selectedSlot}
+        onSlotClick={handleSlotClick}
+      />
+
+      <OverlayUI
+        scrollProgress={scrollProgress}
+        selectedSlot={selectedSlot}
+      />
+
+      {showModal && selectedSlot && (
+        <BookingModal
+          slotId={selectedSlot}
+          onClose={handleCloseModal}
+          onBook={handleBook}
+        />
+      )}
+    </>
   );
 };
-
-const Index = PlaceholderIndex;
 
 export default Index;
