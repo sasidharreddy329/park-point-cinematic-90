@@ -44,7 +44,7 @@ const HeroSection = () => {
               <span className="text-sm text-muted-foreground">Now</span>
             </div>
             <Button
-              onClick={() => navigate("/find-parking")}
+              onClick={() => navigate(`/drive?lot=${encodeURIComponent(location || "Central Plaza")}`)}
               className="bg-primary text-primary-foreground rounded-xl px-6 gap-2"
             >
               Search <Search className="w-4 h-4" />
