@@ -1,56 +1,124 @@
-import { useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { Car, MapPin, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import { motion } from "framer-motion";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
-type Slot = {
+interface ParkingSlot {
   id: string;
-  label: string;
-  status: "available" | "occupied";
-};
+  slot_label: string;
+  slot_type: string;
+  is_available: boolean;
+}
 
-const slotsA: Slot[] = [
-  { id: "A1", label: "A1", status: "available" },
-  { id: "A2", label: "A2", status: "occupied" },
-  { id: "A3", label: "A3", status: "available" },
-  { id: "A4", label: "A4", status: "available" },
-];
-
-const slotsB: Slot[] = [
-  { id: "B1", label: "B1", status: "occupied" },
-  { id: "B2", label: "B2", status: "available" },
-  { id: "B3", label: "B3", status: "occupied" },
-  { id: "B4", label: "B4", status: "available" },
-];
+interface ParkingLocation {
+  id: string;
+  name: string;
+  address: string;
+  price_per_hour: number;
+}
 
 const FindParking = () => {
   const [searchParams] = useSearchParams();
-  const lotName = searchParams.get("lot") || "Downtown Plaza Garage";
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const lotName = searchParams.get("lot") || "";
+
+  const [locations, setLocations] = useState<ParkingLocation[]>([]);
+  const [selectedLocation, setSelectedLocation] = useState<ParkingLocation | null>(null);
+  const [slots, setSlots] = useState<ParkingSlot[]>([]);
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
-  const [booked, setBooked] = useState(false);
+  const [booking, setBooking] = useState(false);
+  const [duration, setDuration] = useState(2);
 
-  const allSlots = [...slotsA, ...slotsB];
-  const selected = allSlots.find((s) => s.id === selectedSlot);
+  useEffect(() => {
+    const fetchLocations = async () => {
+      const { data } = await supabase.from("parking_locations").select("id, name, address, price_per_hour").eq("is_active", true);
+      if (data && data.length > 0) {
+        setLocations(data);
+        const match = lotName ? data.find(l => l.name === lotName) : data[0];
+        if (match) setSelectedLocation(match);
+      }
+    };
+    fetchLocations();
+  }, [lotName]);
 
-  const handleBook = () => {
-    if (selectedSlot) {
-      setBooked(true);
-      setTimeout(() => setBooked(false), 3000);
+  useEffect(() => {
+    if (!selectedLocation) return;
+    const fetchSlots = async () => {
+      const { data } = await supabase.from("parking_slots").select("*").eq("location_id", selectedLocation.id);
+      setSlots(data || []);
+    };
+    fetchSlots();
+  }, [selectedLocation]);
+
+  const selected = slots.find(s => s.id === selectedSlot);
+  const total = selectedLocation ? (selectedLocation.price_per_hour * duration + 1).toFixed(2) : "0.00";
+
+  const handleBook = async () => {
+    if (!user) {
+      toast.error("Please log in to book a parking slot");
+      navigate("/login");
+      return;
     }
+    if (!selectedSlot || !selectedLocation) return;
+
+    setBooking(true);
+    const now = new Date();
+    const end = new Date(now.getTime() + duration * 60 * 60 * 1000);
+
+    const { error } = await supabase.from("bookings").insert({
+      user_id: user.id,
+      slot_id: selectedSlot,
+      location_id: selectedLocation.id,
+      start_time: now.toISOString(),
+      end_time: end.toISOString(),
+      total_price: parseFloat(total),
+      vehicle_number: null,
+    });
+
+    if (error) {
+      toast.error("Booking failed: " + error.message);
+    } else {
+      // Mark slot as unavailable
+      await supabase.from("parking_slots").update({ is_available: false }).eq("id", selectedSlot);
+      toast.success("Booking confirmed!");
+      setSelectedSlot(null);
+      // Refresh slots
+      const { data } = await supabase.from("parking_slots").select("*").eq("location_id", selectedLocation.id);
+      setSlots(data || []);
+    }
+    setBooking(false);
   };
 
-  const SlotCard = ({ slot, index }: { slot: Slot; index: number }) => {
-    const isOccupied = slot.status === "occupied";
+  if (locations.length === 0) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <div className="pt-24 pb-20 px-4 max-w-7xl mx-auto text-center">
+          <Car className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+          <h1 className="text-2xl font-bold text-foreground mb-2">No Parking Locations Available</h1>
+          <p className="text-muted-foreground">Check back soon — parking owners are adding new locations!</p>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
+  const SlotCard = ({ slot, index }: { slot: ParkingSlot; index: number }) => {
+    const isOccupied = !slot.is_available;
     const isSelected = selectedSlot === slot.id;
 
     return (
       <motion.button
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: index * 0.08, duration: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
+        transition={{ delay: index * 0.08, duration: 0.4 }}
         onClick={() => !isOccupied && setSelectedSlot(slot.id)}
         disabled={isOccupied}
         className={`relative w-full aspect-[3/4] rounded-xl border-2 transition-all flex flex-col items-center justify-center gap-2 ${
@@ -62,16 +130,11 @@ const FindParking = () => {
         }`}
       >
         {isSelected && (
-          <motion.div
-            className="absolute top-2 right-2"
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ type: "spring", stiffness: 500, damping: 25 }}
-          >
+          <motion.div className="absolute top-2 right-2" initial={{ scale: 0 }} animate={{ scale: 1 }}>
             <CheckCircle2 className="w-5 h-5 text-primary" />
           </motion.div>
         )}
-        <span className="text-sm font-semibold text-foreground">{slot.label}</span>
+        <span className="text-sm font-semibold text-foreground">{slot.slot_label}</span>
         {isOccupied && <Car className="w-8 h-8 text-muted-foreground" />}
       </motion.button>
     );
@@ -81,94 +144,86 @@ const FindParking = () => {
     <div className="min-h-screen bg-background">
       <Navbar />
       <div className="pt-24 pb-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-        >
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
           <h1 className="text-2xl font-bold text-foreground mb-1">Select Your Parking Spot</h1>
-          <p className="text-muted-foreground text-sm mb-8">{lotName}</p>
+          {/* Location selector */}
+          <div className="flex flex-wrap gap-2 mb-8">
+            {locations.map(loc => (
+              <button
+                key={loc.id}
+                onClick={() => { setSelectedLocation(loc); setSelectedSlot(null); }}
+                className={`px-4 py-2 rounded-full text-sm font-medium border transition-all ${
+                  selectedLocation?.id === loc.id
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border text-muted-foreground hover:border-primary/40"
+                }`}
+              >
+                {loc.name}
+              </button>
+            ))}
+          </div>
         </motion.div>
 
         <div className="grid lg:grid-cols-3 gap-10">
-          {/* Parking Grid */}
           <div className="lg:col-span-2">
-            {/* Row A */}
-            <div className="grid grid-cols-4 gap-4 mb-4">
-              {slotsA.map((slot, i) => (
-                <SlotCard key={slot.id} slot={slot} index={i} />
-              ))}
-            </div>
+            {slots.length > 0 ? (
+              <div className="grid grid-cols-4 sm:grid-cols-5 gap-4">
+                {slots.map((slot, i) => (
+                  <SlotCard key={slot.id} slot={slot} index={i} />
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-20 text-muted-foreground">
+                <p>No slots configured for this location yet.</p>
+              </div>
+            )}
 
-            {/* Driveway */}
-            <div className="flex items-center justify-center gap-3 py-4 text-muted-foreground">
-              <span className="text-xs tracking-[0.3em] uppercase font-medium">D R I V E W A Y</span>
-              <span>→</span>
-            </div>
-
-            {/* Row B */}
-            <div className="grid grid-cols-4 gap-4">
-              {slotsB.map((slot, i) => (
-                <SlotCard key={slot.id} slot={slot} index={i + 4} />
-              ))}
-            </div>
-
-            {/* Legend */}
             <div className="flex items-center gap-6 mt-8 text-sm text-muted-foreground">
               <div className="flex items-center gap-2">
-                <div className="w-4 h-4 rounded border-2 border-border bg-card" />
-                Available
+                <div className="w-4 h-4 rounded border-2 border-border bg-card" />Available
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-4 h-4 rounded border-2 border-border bg-muted" />
-                Occupied
+                <div className="w-4 h-4 rounded border-2 border-border bg-muted" />Occupied
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-4 h-4 rounded border-2 border-primary bg-primary/5" />
-                Selected
+                <div className="w-4 h-4 rounded border-2 border-primary bg-primary/5" />Selected
               </div>
             </div>
           </div>
 
-          {/* Booking Summary */}
           <div className="lg:col-span-1">
             <motion.div
               className="bg-card border border-border rounded-2xl p-6 sticky top-24"
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.3, duration: 0.5 }}
+              transition={{ delay: 0.3 }}
             >
               <h2 className="text-xl font-bold text-foreground mb-6">Booking Summary</h2>
 
-              {selected ? (
-                <motion.div
-                  key={selected.id}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ duration: 0.3 }}
-                >
+              {selected && selectedLocation ? (
+                <motion.div key={selected.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
                   <div className="flex items-start gap-3 mb-6">
                     <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center shrink-0">
                       <MapPin className="w-5 h-5 text-primary-foreground" />
                     </div>
                     <div>
-                      <p className="font-semibold text-foreground">{lotName}</p>
-                      <p className="text-xs text-muted-foreground">123 Market St, San Francisco</p>
+                      <p className="font-semibold text-foreground">{selectedLocation.name}</p>
+                      <p className="text-xs text-muted-foreground">{selectedLocation.address}</p>
                     </div>
                   </div>
 
                   <div className="space-y-3 text-sm">
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Spot</span>
-                      <span className="font-medium text-foreground">{selected.label} (Level 2)</span>
+                      <span className="font-medium text-foreground">{selected.slot_label}</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Date</span>
-                      <span className="font-medium text-foreground">Today, {new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
-                    </div>
-                    <div className="flex justify-between">
+                    <div className="flex justify-between items-center">
                       <span className="text-muted-foreground">Duration</span>
-                      <span className="font-medium text-foreground">2 Hours (14:00 - 16:00)</span>
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => setDuration(Math.max(1, duration - 1))} className="w-7 h-7 rounded-lg border border-border text-foreground text-sm">-</button>
+                        <span className="font-medium text-foreground">{duration}h</span>
+                        <button onClick={() => setDuration(Math.min(24, duration + 1))} className="w-7 h-7 rounded-lg border border-border text-foreground text-sm">+</button>
+                      </div>
                     </div>
                   </div>
 
@@ -177,7 +232,7 @@ const FindParking = () => {
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Rate</span>
-                      <span className="text-foreground">$4.50 / hr</span>
+                      <span className="text-foreground">${selectedLocation.price_per_hour}/hr</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Service Fee</span>
@@ -189,19 +244,20 @@ const FindParking = () => {
 
                   <div className="flex justify-between items-center mb-6">
                     <span className="font-semibold text-foreground">Total</span>
-                    <span className="text-2xl font-bold text-primary">$10.00</span>
+                    <span className="text-2xl font-bold text-primary">${total}</span>
                   </div>
+
+                  {!user && (
+                    <p className="text-xs text-amber-600 mb-3 text-center">⚠️ You need to log in to book</p>
+                  )}
 
                   <Button
                     onClick={handleBook}
+                    disabled={booking}
                     className="w-full bg-primary text-primary-foreground rounded-xl py-3 h-auto font-semibold text-base"
                   >
-                    {booked ? "✓ Booked!" : "Confirm & Pay →"}
+                    {booking ? "Booking..." : user ? "Confirm & Pay →" : "Log In to Book →"}
                   </Button>
-
-                  <p className="text-xs text-muted-foreground text-center mt-3">
-                    Secure payment powered by Stripe
-                  </p>
                 </motion.div>
               ) : (
                 <div className="text-center py-10">

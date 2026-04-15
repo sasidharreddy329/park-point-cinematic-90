@@ -1,139 +1,146 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import {
-  LayoutDashboard,
-  CalendarCheck,
-  CreditCard,
-  Car,
-  Settings,
-  LogOut,
-  TrendingUp,
-} from "lucide-react";
-import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
+import { CalendarCheck, Car, CreditCard, XCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
-const sidebarItems = [
-  { icon: LayoutDashboard, label: "Dashboard", active: true },
-  { icon: CalendarCheck, label: "My Bookings" },
-  { icon: CreditCard, label: "Payments" },
-  { icon: Car, label: "My Vehicles" },
-  { icon: Settings, label: "Settings" },
-];
-
-const chartData = [
-  { day: "Mon", bookings: 4 },
-  { day: "Tue", bookings: 8 },
-  { day: "Wed", bookings: 5 },
-  { day: "Thu", bookings: 7 },
-  { day: "Fri", bookings: 12 },
-  { day: "Sat", bookings: 25 },
-  { day: "Sun", bookings: 18 },
-];
-
-const statsCards = [
-  { icon: CalendarCheck, label: "Total Bookings", value: "24", trend: "+12%", color: "bg-blue-100 text-blue-600" },
-  { icon: Car, label: "Hours Parked", value: "48.5 hrs", trend: "", color: "bg-red-100 text-red-500" },
-  { icon: CreditCard, label: "Total Spent", value: "$142.00", trend: "", color: "bg-green-100 text-green-600" },
-];
+interface Booking {
+  id: string;
+  start_time: string;
+  end_time: string;
+  total_price: number;
+  status: string;
+  vehicle_number: string | null;
+  parking_locations: { name: string; address: string } | null;
+  parking_slots: { slot_label: string } | null;
+}
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const { user, role, signOut } = useAuth();
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user) return;
+    const fetchBookings = async () => {
+      const { data } = await supabase
+        .from("bookings")
+        .select("*, parking_locations(name, address), parking_slots(slot_label)")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+      setBookings((data as unknown as Booking[]) || []);
+      setLoading(false);
+    };
+    fetchBookings();
+  }, [user]);
+
+  const cancelBooking = async (id: string, slotId: string) => {
+    const { error } = await supabase.from("bookings").update({ status: "cancelled" }).eq("id", id);
+    if (!error) {
+      await supabase.from("parking_slots").update({ is_available: true }).eq("id", slotId);
+      setBookings(prev => prev.map(b => b.id === id ? { ...b, status: "cancelled" } : b));
+      toast.success("Booking cancelled");
+    }
+  };
+
+  const activeBookings = bookings.filter(b => b.status === "active");
+  const pastBookings = bookings.filter(b => b.status !== "active");
+  const totalSpent = bookings.filter(b => b.status !== "cancelled").reduce((s, b) => s + b.total_price, 0);
 
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      <div className="pt-20 flex">
-        {/* Sidebar */}
-        <aside className="hidden lg:flex flex-col w-56 border-r border-border bg-card min-h-[calc(100vh-5rem)] p-4">
-          <div className="flex items-center gap-3 px-3 py-4 mb-4">
-            <div className="w-9 h-9 bg-primary rounded-lg flex items-center justify-center">
-              <span className="text-primary-foreground font-bold">P</span>
-            </div>
-            <span className="font-bold text-foreground">ParkPoint</span>
+      <div className="pt-24 pb-20 px-4 sm:px-6 lg:px-8 max-w-5xl mx-auto">
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">My Dashboard</h1>
+            <p className="text-muted-foreground text-sm">Manage your bookings</p>
           </div>
+          {role === "owner" && (
+            <Link to="/owner">
+              <Button variant="outline" size="sm">Owner Dashboard →</Button>
+            </Link>
+          )}
+        </div>
 
-          <nav className="space-y-1 flex-1">
-            {sidebarItems.map((item) => (
-              <button
-                key={item.label}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
-                  item.active
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:bg-muted"
-                }`}
-              >
-                <item.icon className="w-4 h-4" />
-                {item.label}
-              </button>
+        {/* Stats */}
+        <div className="grid sm:grid-cols-3 gap-5 mb-8">
+          <div className="bg-card border border-border rounded-2xl p-5">
+            <CalendarCheck className="w-8 h-8 text-primary mb-2" />
+            <p className="text-xs text-muted-foreground">Active Bookings</p>
+            <p className="text-2xl font-bold text-foreground">{activeBookings.length}</p>
+          </div>
+          <div className="bg-card border border-border rounded-2xl p-5">
+            <Car className="w-8 h-8 text-primary mb-2" />
+            <p className="text-xs text-muted-foreground">Total Bookings</p>
+            <p className="text-2xl font-bold text-foreground">{bookings.length}</p>
+          </div>
+          <div className="bg-card border border-border rounded-2xl p-5">
+            <CreditCard className="w-8 h-8 text-primary mb-2" />
+            <p className="text-xs text-muted-foreground">Total Spent</p>
+            <p className="text-2xl font-bold text-foreground">${totalSpent.toFixed(2)}</p>
+          </div>
+        </div>
+
+        {/* Active Bookings */}
+        <h2 className="text-lg font-bold text-foreground mb-4">Active Bookings</h2>
+        {loading ? (
+          <p className="text-muted-foreground text-sm">Loading...</p>
+        ) : activeBookings.length === 0 ? (
+          <div className="bg-card border border-border rounded-2xl p-8 text-center mb-8">
+            <Car className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+            <p className="text-muted-foreground text-sm">No active bookings</p>
+            <Link to="/find-parking">
+              <Button size="sm" className="mt-4">Find Parking</Button>
+            </Link>
+          </div>
+        ) : (
+          <div className="space-y-3 mb-8">
+            {activeBookings.map(b => (
+              <div key={b.id} className="bg-card border border-border rounded-2xl p-5 flex items-center justify-between">
+                <div>
+                  <p className="font-semibold text-foreground">{b.parking_locations?.name || "Unknown"}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Slot {b.parking_slots?.slot_label} · {new Date(b.start_time).toLocaleString()} — {new Date(b.end_time).toLocaleTimeString()}
+                  </p>
+                  <p className="text-sm font-medium text-primary mt-1">${b.total_price.toFixed(2)}</p>
+                </div>
+                <Button variant="destructive" size="sm" onClick={() => cancelBooking(b.id, (b as any).slot_id)}>
+                  <XCircle className="w-4 h-4 mr-1" /> Cancel
+                </Button>
+              </div>
             ))}
-          </nav>
+          </div>
+        )}
 
-          <button
-            onClick={() => navigate("/")}
-            className="flex items-center gap-3 px-3 py-2.5 text-sm text-muted-foreground hover:text-foreground transition-colors mt-4"
-          >
-            <LogOut className="w-4 h-4" />
-            Log Out
-          </button>
-        </aside>
-
-        {/* Main Content */}
-        <main className="flex-1 p-6 lg:p-10">
-          <div className="max-w-5xl">
-            <p className="text-muted-foreground text-sm mb-1">Welcome back, Alex!</p>
-            <h1 className="text-2xl font-bold text-foreground mb-8">Dashboard</h1>
-
-            {/* Stats Cards */}
-            <div className="grid sm:grid-cols-3 gap-5 mb-8">
-              {statsCards.map((card) => (
-                <div key={card.label} className="bg-card border border-border rounded-2xl p-5">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${card.color}`}>
-                      <card.icon className="w-5 h-5" />
-                    </div>
-                    {card.trend && (
-                      <span className="flex items-center gap-1 text-xs font-medium text-green-600">
-                        <TrendingUp className="w-3 h-3" />
-                        {card.trend}
-                      </span>
-                    )}
+        {/* Past Bookings */}
+        {pastBookings.length > 0 && (
+          <>
+            <h2 className="text-lg font-bold text-foreground mb-4">Booking History</h2>
+            <div className="space-y-3">
+              {pastBookings.map(b => (
+                <div key={b.id} className="bg-card border border-border rounded-2xl p-5 flex items-center justify-between opacity-70">
+                  <div>
+                    <p className="font-semibold text-foreground">{b.parking_locations?.name || "Unknown"}</p>
+                    <p className="text-xs text-muted-foreground">
+                      Slot {b.parking_slots?.slot_label} · {new Date(b.start_time).toLocaleDateString()}
+                    </p>
                   </div>
-                  <p className="text-xs text-muted-foreground">{card.label}</p>
-                  <p className="text-2xl font-bold text-foreground mt-1">{card.value}</p>
+                  <span className={`text-xs font-medium px-3 py-1 rounded-full ${
+                    b.status === "cancelled" ? "bg-red-100 text-red-600" : "bg-green-100 text-green-600"
+                  }`}>
+                    {b.status}
+                  </span>
                 </div>
               ))}
             </div>
-
-            {/* Activity Chart */}
-            <div className="bg-card border border-border rounded-2xl p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="font-bold text-foreground">Current Activity</h2>
-                <Link to="#" className="text-sm text-primary font-medium">View All</Link>
-              </div>
-              <ResponsiveContainer width="100%" height={250}>
-                <AreaChart data={chartData}>
-                  <defs>
-                    <linearGradient id="colorBookings" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="hsl(228, 82%, 57%)" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="hsl(228, 82%, 57%)" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 12 }} />
-                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12 }} />
-                  <Tooltip />
-                  <Area
-                    type="monotone"
-                    dataKey="bookings"
-                    stroke="hsl(228, 82%, 57%)"
-                    strokeWidth={2}
-                    fill="url(#colorBookings)"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-        </main>
+          </>
+        )}
       </div>
       <Footer />
     </div>
