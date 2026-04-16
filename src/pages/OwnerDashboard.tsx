@@ -3,6 +3,8 @@ import { Plus, Trash2, MapPin, DollarSign, LayoutGrid, Eye } from "lucide-react"
 import { Button } from "@/components/ui/button";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
+import LocationPickerMap from "@/components/map/LocationPickerMap";
+import ImageUpload from "@/components/parking/ImageUpload";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -16,6 +18,9 @@ interface Location {
   price_per_hour: number;
   total_slots: number;
   is_active: boolean;
+  lat: number | null;
+  lng: number | null;
+  images: string[] | null;
 }
 
 interface Slot {
@@ -44,12 +49,14 @@ const OwnerDashboard = () => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [tab, setTab] = useState<"slots" | "bookings">("slots");
 
-  // Add location form
+  // Form state
   const [newName, setNewName] = useState("");
   const [newAddress, setNewAddress] = useState("");
   const [newCity, setNewCity] = useState("");
   const [newPrice, setNewPrice] = useState("5.00");
   const [newSlotCount, setNewSlotCount] = useState("10");
+  const [newCoords, setNewCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [newImages, setNewImages] = useState<string[]>([]);
 
   useEffect(() => {
     if (!user) return;
@@ -57,12 +64,10 @@ const OwnerDashboard = () => {
   }, [user]);
 
   const fetchLocations = async () => {
-    // Owners can see their own locations (active or not) but RLS only allows active.
-    // We'll use a workaround: owners can see all active ones.
     const { data } = await supabase.from("parking_locations").select("*").eq("owner_id", user!.id);
-    setLocations(data || []);
+    setLocations((data as Location[]) || []);
     if (data && data.length > 0 && !selectedLocation) {
-      setSelectedLocation(data[0]);
+      setSelectedLocation(data[0] as Location);
     }
   };
 
@@ -86,7 +91,11 @@ const OwnerDashboard = () => {
 
   const addLocation = async () => {
     if (!newName || !newAddress || !newCity) {
-      toast.error("Please fill all fields");
+      toast.error("Please fill all required fields");
+      return;
+    }
+    if (newImages.length < 2) {
+      toast.error("Please upload at least 2 images");
       return;
     }
     const slotCount = parseInt(newSlotCount);
@@ -99,16 +108,15 @@ const OwnerDashboard = () => {
         city: newCity,
         price_per_hour: parseFloat(newPrice),
         total_slots: slotCount,
+        lat: newCoords?.lat ?? null,
+        lng: newCoords?.lng ?? null,
+        images: newImages,
       })
       .select()
       .single();
 
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
+    if (error) { toast.error(error.message); return; }
 
-    // Auto-generate slots
     const slotsToInsert = Array.from({ length: slotCount }, (_, i) => ({
       location_id: data.id,
       slot_label: `${String.fromCharCode(65 + Math.floor(i / 5))}${(i % 5) + 1}`,
@@ -120,6 +128,7 @@ const OwnerDashboard = () => {
     toast.success("Location added with " + slotCount + " slots!");
     setShowAddForm(false);
     setNewName(""); setNewAddress(""); setNewCity(""); setNewPrice("5.00"); setNewSlotCount("10");
+    setNewCoords(null); setNewImages([]);
     fetchLocations();
   };
 
@@ -136,6 +145,8 @@ const OwnerDashboard = () => {
   };
 
   const totalRevenue = bookings.filter(b => b.status !== "cancelled").reduce((s, b) => s + b.total_price, 0);
+
+  const inputClass = "bg-background border border-border rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/20 text-foreground";
 
   return (
     <div className="min-h-screen bg-background">
@@ -159,14 +170,33 @@ const OwnerDashboard = () => {
             className="bg-card border border-border rounded-2xl p-6 mb-8"
           >
             <h3 className="font-bold text-foreground mb-4">Add New Parking Location</h3>
-            <div className="grid sm:grid-cols-2 gap-4">
-              <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Location Name" className="bg-background border border-border rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/20" />
-              <input value={newAddress} onChange={e => setNewAddress(e.target.value)} placeholder="Address" className="bg-background border border-border rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/20" />
-              <input value={newCity} onChange={e => setNewCity(e.target.value)} placeholder="City" className="bg-background border border-border rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/20" />
-              <input type="number" value={newPrice} onChange={e => setNewPrice(e.target.value)} placeholder="Price/hr" className="bg-background border border-border rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/20" />
-              <input type="number" value={newSlotCount} onChange={e => setNewSlotCount(e.target.value)} placeholder="Number of Slots" className="bg-background border border-border rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/20" />
+            <div className="grid sm:grid-cols-2 gap-4 mb-4">
+              <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Location Name *" className={inputClass} />
+              <input value={newAddress} onChange={e => setNewAddress(e.target.value)} placeholder="Address *" className={inputClass} />
+              <input value={newCity} onChange={e => setNewCity(e.target.value)} placeholder="City *" className={inputClass} />
+              <input type="number" value={newPrice} onChange={e => setNewPrice(e.target.value)} placeholder="Price/hr" className={inputClass} />
+              <input type="number" value={newSlotCount} onChange={e => setNewSlotCount(e.target.value)} placeholder="Number of Slots" className={inputClass} />
             </div>
-            <div className="flex gap-3 mt-4">
+
+            {/* Map picker */}
+            <div className="mb-4">
+              <label className="text-sm text-muted-foreground mb-2 block">
+                📍 Click the map to set location {newCoords && <span className="text-primary font-medium">({newCoords.lat.toFixed(4)}, {newCoords.lng.toFixed(4)})</span>}
+              </label>
+              <LocationPickerMap
+                value={newCoords}
+                onChange={setNewCoords}
+                className="h-[250px]"
+              />
+            </div>
+
+            {/* Image Upload */}
+            <div className="mb-4">
+              <label className="text-sm text-muted-foreground mb-2 block">📸 Upload Images (min 2)</label>
+              <ImageUpload images={newImages} onChange={setNewImages} />
+            </div>
+
+            <div className="flex gap-3">
               <Button onClick={addLocation}>Create Location</Button>
               <Button variant="outline" onClick={() => setShowAddForm(false)}>Cancel</Button>
             </div>
@@ -224,6 +254,15 @@ const OwnerDashboard = () => {
                   </Button>
                 </div>
 
+                {/* Images preview */}
+                {selectedLocation.images && selectedLocation.images.length > 0 && (
+                  <div className="flex gap-2 overflow-x-auto mb-6 pb-1">
+                    {selectedLocation.images.map((img, i) => (
+                      <img key={i} src={img} alt="" className="w-20 h-20 rounded-lg object-cover shrink-0 border border-border" />
+                    ))}
+                  </div>
+                )}
+
                 {/* Tabs */}
                 <div className="flex gap-2 mb-6">
                   <button onClick={() => setTab("slots")} className={`px-4 py-2 rounded-lg text-sm font-medium ${tab === "slots" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
@@ -242,8 +281,8 @@ const OwnerDashboard = () => {
                         onClick={() => toggleSlotAvailability(slot.id, slot.is_available)}
                         className={`aspect-square rounded-xl border-2 flex flex-col items-center justify-center text-sm font-medium transition-all ${
                           slot.is_available
-                            ? "border-green-400 bg-green-50 text-green-700"
-                            : "border-red-400 bg-red-50 text-red-700"
+                            ? "border-green-400 bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400"
+                            : "border-red-400 bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400"
                         }`}
                       >
                         {slot.slot_label}
@@ -267,8 +306,8 @@ const OwnerDashboard = () => {
                           <div className="text-right">
                             <p className="text-sm font-bold text-foreground">${b.total_price.toFixed(2)}</p>
                             <span className={`text-xs px-2 py-0.5 rounded-full ${
-                              b.status === "active" ? "bg-green-100 text-green-600" :
-                              b.status === "cancelled" ? "bg-red-100 text-red-600" : "bg-muted text-muted-foreground"
+                              b.status === "active" ? "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400" :
+                              b.status === "cancelled" ? "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400" : "bg-muted text-muted-foreground"
                             }`}>{b.status}</span>
                           </div>
                         </div>
