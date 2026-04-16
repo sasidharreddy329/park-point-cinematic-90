@@ -12,6 +12,7 @@ import Dashboard from "./pages/Dashboard";
 import OwnerDashboard from "./pages/OwnerDashboard";
 import Login from "./pages/Login";
 import SignUp from "./pages/SignUp";
+import ParkingDetail from "./pages/ParkingDetail";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -27,6 +28,7 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/drive" element={<CarTransition />} />
             <Route path="/find-parking" element={<FindParking />} />
+            <Route path="/parking/:id" element={<ParkingDetail />} />
             <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/owner" element={<ProtectedRoute requiredRole="owner"><OwnerDashboard /></ProtectedRoute>} />
             <Route path="/login" element={<Login />} />

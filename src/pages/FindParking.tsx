@@ -1,283 +1,260 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
-import { Car, MapPin, CheckCircle2 } from "lucide-react";
+import { Search, SlidersHorizontal, MapPin, Navigation, Car } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
-import { motion } from "framer-motion";
-import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
 import ParkingMap from "@/components/map/ParkingMap";
-
-interface ParkingSlot {
-  id: string;
-  slot_label: string;
-  slot_type: string;
-  is_available: boolean;
-}
+import ParkingCard from "@/components/parking/ParkingCard";
+import { useGeolocation } from "@/hooks/useGeolocation";
+import { haversineDistance, formatDistance } from "@/lib/distance";
+import { supabase } from "@/integrations/supabase/client";
+import { motion } from "framer-motion";
 
 interface ParkingLocation {
   id: string;
   name: string;
   address: string;
+  city: string;
   price_per_hour: number;
+  total_slots: number;
   lat: number | null;
   lng: number | null;
+  image_url: string | null;
+  images: string[] | null;
 }
+
+interface SlotCount {
+  location_id: string;
+  available: number;
+}
+
+const POPULAR_SEARCHES = ["Mall", "Railway Station", "City Center", "Airport", "Hospital"];
 
 const FindParking = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const lotName = searchParams.get("lot") || "";
+  const { position } = useGeolocation();
 
   const [locations, setLocations] = useState<ParkingLocation[]>([]);
-  const [selectedLocation, setSelectedLocation] = useState<ParkingLocation | null>(null);
-  const [slots, setSlots] = useState<ParkingSlot[]>([]);
-  const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
-  const [booking, setBooking] = useState(false);
-  const [duration, setDuration] = useState(2);
+  const [slotCounts, setSlotCounts] = useState<SlotCount[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [search, setSearch] = useState(searchParams.get("q") || "");
+  const [showFilters, setShowFilters] = useState(false);
+  const [maxPrice, setMaxPrice] = useState(100);
+  const [maxDistance, setMaxDistance] = useState(50);
+  const [onlyAvailable, setOnlyAvailable] = useState(false);
 
   useEffect(() => {
     const fetchLocations = async () => {
-      const { data } = await supabase.from("parking_locations").select("id, name, address, price_per_hour, lat, lng").eq("is_active", true);
-      if (data && data.length > 0) {
-        setLocations(data);
-        const match = lotName ? data.find(l => l.name === lotName) : data[0];
-        if (match) setSelectedLocation(match);
-      }
+      const { data } = await supabase
+        .from("parking_locations")
+        .select("id, name, address, city, price_per_hour, total_slots, lat, lng, image_url, images")
+        .eq("is_active", true);
+      setLocations((data as ParkingLocation[]) || []);
     };
     fetchLocations();
-  }, [lotName]);
+  }, []);
 
   useEffect(() => {
-    if (!selectedLocation) return;
     const fetchSlots = async () => {
-      const { data } = await supabase.from("parking_slots").select("*").eq("location_id", selectedLocation.id);
-      setSlots(data || []);
+      const { data } = await supabase
+        .from("parking_slots")
+        .select("location_id, is_available");
+      if (data) {
+        const counts: Record<string, number> = {};
+        data.forEach(s => {
+          if (s.is_available) counts[s.location_id] = (counts[s.location_id] || 0) + 1;
+        });
+        setSlotCounts(Object.entries(counts).map(([location_id, available]) => ({ location_id, available })));
+      }
     };
     fetchSlots();
-  }, [selectedLocation]);
+  }, []);
 
-  const selected = slots.find(s => s.id === selectedSlot);
-  const total = selectedLocation ? (selectedLocation.price_per_hour * duration + 1).toFixed(2) : "0.00";
+  const locationsWithDistance = useMemo(() => {
+    return locations.map(loc => {
+      let dist: number | null = null;
+      if (position && loc.lat && loc.lng) {
+        dist = haversineDistance(position.lat, position.lng, loc.lat, loc.lng);
+      }
+      const sc = slotCounts.find(s => s.location_id === loc.id);
+      return { ...loc, distance: dist, available_slots: sc?.available ?? 0 };
+    });
+  }, [locations, position, slotCounts]);
 
-  const handleBook = async () => {
-    if (!user) {
-      toast.error("Please log in to book a parking slot");
-      navigate("/login");
-      return;
+  const filtered = useMemo(() => {
+    let result = locationsWithDistance;
+
+    if (search) {
+      const q = search.toLowerCase();
+      result = result.filter(l =>
+        l.name.toLowerCase().includes(q) ||
+        l.address.toLowerCase().includes(q) ||
+        l.city.toLowerCase().includes(q)
+      );
     }
-    if (!selectedSlot || !selectedLocation) return;
 
-    setBooking(true);
-    const now = new Date();
-    const end = new Date(now.getTime() + duration * 60 * 60 * 1000);
+    result = result.filter(l => l.price_per_hour <= maxPrice);
 
-    const { error } = await supabase.from("bookings").insert({
-      user_id: user.id,
-      slot_id: selectedSlot,
-      location_id: selectedLocation.id,
-      start_time: now.toISOString(),
-      end_time: end.toISOString(),
-      total_price: parseFloat(total),
-      vehicle_number: null,
+    if (position) {
+      result = result.filter(l => l.distance === null || l.distance <= maxDistance);
+    }
+
+    if (onlyAvailable) {
+      result = result.filter(l => l.available_slots > 0);
+    }
+
+    // Sort by distance if available
+    result.sort((a, b) => {
+      if (a.distance !== null && b.distance !== null) return a.distance - b.distance;
+      if (a.distance !== null) return -1;
+      return 0;
     });
 
-    if (error) {
-      toast.error("Booking failed: " + error.message);
-    } else {
-      // Mark slot as unavailable
-      await supabase.from("parking_slots").update({ is_available: false }).eq("id", selectedSlot);
-      toast.success("Booking confirmed!");
-      setSelectedSlot(null);
-      // Refresh slots
-      const { data } = await supabase.from("parking_slots").select("*").eq("location_id", selectedLocation.id);
-      setSlots(data || []);
-    }
-    setBooking(false);
-  };
+    return result;
+  }, [locationsWithDistance, search, maxPrice, maxDistance, onlyAvailable, position]);
 
-  if (locations.length === 0) {
-    return (
-      <div className="min-h-screen bg-background">
-        <Navbar />
-        <div className="pt-24 pb-20 px-4 max-w-7xl mx-auto text-center">
-          <Car className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-foreground mb-2">No Parking Locations Available</h1>
-          <p className="text-muted-foreground">Check back soon — parking owners are adding new locations!</p>
-        </div>
-        <Footer />
-      </div>
-    );
-  }
-
-  const SlotCard = ({ slot, index }: { slot: ParkingSlot; index: number }) => {
-    const isOccupied = !slot.is_available;
-    const isSelected = selectedSlot === slot.id;
-
-    return (
-      <motion.button
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: index * 0.08, duration: 0.4 }}
-        onClick={() => !isOccupied && setSelectedSlot(slot.id)}
-        disabled={isOccupied}
-        className={`relative w-full aspect-[3/4] rounded-xl border-2 transition-all flex flex-col items-center justify-center gap-2 ${
-          isSelected
-            ? "border-primary bg-primary/5 shadow-lg"
-            : isOccupied
-            ? "border-border bg-muted cursor-not-allowed opacity-60"
-            : "border-border bg-card hover:border-primary/40 hover:shadow-md"
-        }`}
-      >
-        {isSelected && (
-          <motion.div className="absolute top-2 right-2" initial={{ scale: 0 }} animate={{ scale: 1 }}>
-            <CheckCircle2 className="w-5 h-5 text-primary" />
-          </motion.div>
-        )}
-        <span className="text-sm font-semibold text-foreground">{slot.slot_label}</span>
-        {isOccupied && <Car className="w-8 h-8 text-muted-foreground" />}
-      </motion.button>
-    );
-  };
+  const mapLocations = filtered.map(l => ({
+    id: l.id,
+    name: l.name,
+    address: l.address,
+    lat: l.lat,
+    lng: l.lng,
+    price_per_hour: l.price_per_hour,
+  }));
 
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
       <div className="pt-24 pb-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
-          <h1 className="text-2xl font-bold text-foreground mb-1">Select Your Parking Spot</h1>
-          {/* Location selector */}
-          <div className="flex flex-wrap gap-2 mb-8">
-            {locations.map(loc => (
+        {/* Search Bar */}
+        <div className="flex gap-3 mb-6">
+          <div className="flex-1 relative">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search by city, area, or landmark..."
+              className="w-full pl-11 pr-4 py-3 bg-card border border-border rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-shadow"
+            />
+          </div>
+          <Button
+            variant="outline"
+            size="icon"
+            className="shrink-0 h-[46px] w-[46px] rounded-xl"
+            onClick={() => setShowFilters(!showFilters)}
+          >
+            <SlidersHorizontal className="w-4 h-4" />
+          </Button>
+        </div>
+
+        {/* Popular Searches */}
+        {!search && (
+          <div className="flex flex-wrap gap-2 mb-6">
+            <span className="text-xs text-muted-foreground self-center mr-1">Popular:</span>
+            {POPULAR_SEARCHES.map(s => (
               <button
-                key={loc.id}
-                onClick={() => { setSelectedLocation(loc); setSelectedSlot(null); }}
-                className={`px-4 py-2 rounded-full text-sm font-medium border transition-all ${
-                  selectedLocation?.id === loc.id
-                    ? "border-primary bg-primary/10 text-primary"
-                    : "border-border text-muted-foreground hover:border-primary/40"
-                }`}
+                key={s}
+                onClick={() => setSearch(s)}
+                className="px-3 py-1.5 text-xs rounded-full border border-border text-muted-foreground hover:border-primary/40 hover:text-foreground transition-colors"
               >
-                {loc.name}
+                {s}
               </button>
             ))}
           </div>
-        </motion.div>
+        )}
 
-        <div className="grid lg:grid-cols-3 gap-10">
-          <div className="lg:col-span-2 space-y-6">
-            {/* Map */}
-            <ParkingMap
-              locations={locations}
-              selectedLocationId={selectedLocation?.id}
-              onLocationSelect={(loc) => { setSelectedLocation(loc); setSelectedSlot(null); }}
-              className="h-[300px]"
-            />
-            {slots.length > 0 ? (
-              <div className="grid grid-cols-4 sm:grid-cols-5 gap-4">
-                {slots.map((slot, i) => (
-                  <SlotCard key={slot.id} slot={slot} index={i} />
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-20 text-muted-foreground">
-                <p>No slots configured for this location yet.</p>
+        {/* Filters Panel */}
+        {showFilters && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            className="bg-card border border-border rounded-xl p-5 mb-6 grid sm:grid-cols-3 gap-5"
+          >
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Max Price: ${maxPrice}/hr</label>
+              <input
+                type="range"
+                min={1}
+                max={100}
+                value={maxPrice}
+                onChange={e => setMaxPrice(Number(e.target.value))}
+                className="w-full accent-primary"
+              />
+            </div>
+            {position && (
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Max Distance: {maxDistance} km</label>
+                <input
+                  type="range"
+                  min={1}
+                  max={100}
+                  value={maxDistance}
+                  onChange={e => setMaxDistance(Number(e.target.value))}
+                  className="w-full accent-primary"
+                />
               </div>
             )}
-
-            <div className="flex items-center gap-6 mt-8 text-sm text-muted-foreground">
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 rounded border-2 border-border bg-card" />Available
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 rounded border-2 border-border bg-muted" />Occupied
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 rounded border-2 border-primary bg-primary/5" />Selected
-              </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="avail"
+                checked={onlyAvailable}
+                onChange={e => setOnlyAvailable(e.target.checked)}
+                className="accent-primary"
+              />
+              <label htmlFor="avail" className="text-xs text-muted-foreground">Available spots only</label>
             </div>
+          </motion.div>
+        )}
+
+        {/* Location info */}
+        {position && (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground mb-4">
+            <Navigation className="w-3 h-3 text-primary" />
+            <span>Using your location · Showing nearest first</span>
           </div>
+        )}
 
-          <div className="lg:col-span-1">
-            <motion.div
-              className="bg-card border border-border rounded-2xl p-6 sticky top-24"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.3 }}
-            >
-              <h2 className="text-xl font-bold text-foreground mb-6">Booking Summary</h2>
+        {/* Map */}
+        <ParkingMap
+          locations={mapLocations}
+          selectedLocationId={selectedId}
+          onLocationSelect={(loc) => setSelectedId(loc.id)}
+          className="h-[350px] mb-8"
+        />
 
-              {selected && selectedLocation ? (
-                <motion.div key={selected.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                  <div className="flex items-start gap-3 mb-6">
-                    <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center shrink-0">
-                      <MapPin className="w-5 h-5 text-primary-foreground" />
-                    </div>
-                    <div>
-                      <p className="font-semibold text-foreground">{selectedLocation.name}</p>
-                      <p className="text-xs text-muted-foreground">{selectedLocation.address}</p>
-                    </div>
-                  </div>
+        {/* Results */}
+        <h2 className="text-lg font-bold text-foreground mb-4">
+          {search ? `Results for "${search}"` : "Nearby Parking"} ({filtered.length})
+        </h2>
 
-                  <div className="space-y-3 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Spot</span>
-                      <span className="font-medium text-foreground">{selected.slot_label}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-muted-foreground">Duration</span>
-                      <div className="flex items-center gap-2">
-                        <button onClick={() => setDuration(Math.max(1, duration - 1))} className="w-7 h-7 rounded-lg border border-border text-foreground text-sm">-</button>
-                        <span className="font-medium text-foreground">{duration}h</span>
-                        <button onClick={() => setDuration(Math.min(24, duration + 1))} className="w-7 h-7 rounded-lg border border-border text-foreground text-sm">+</button>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="border-t border-border my-5" />
-
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Rate</span>
-                      <span className="text-foreground">${selectedLocation.price_per_hour}/hr</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Service Fee</span>
-                      <span className="text-foreground">$1.00</span>
-                    </div>
-                  </div>
-
-                  <div className="border-t border-border my-5" />
-
-                  <div className="flex justify-between items-center mb-6">
-                    <span className="font-semibold text-foreground">Total</span>
-                    <span className="text-2xl font-bold text-primary">${total}</span>
-                  </div>
-
-                  {!user && (
-                    <p className="text-xs text-amber-600 mb-3 text-center">⚠️ You need to log in to book</p>
-                  )}
-
-                  <Button
-                    onClick={handleBook}
-                    disabled={booking}
-                    className="w-full bg-primary text-primary-foreground rounded-xl py-3 h-auto font-semibold text-base"
-                  >
-                    {booking ? "Booking..." : user ? "Confirm & Pay →" : "Log In to Book →"}
-                  </Button>
-                </motion.div>
-              ) : (
-                <div className="text-center py-10">
-                  <Car className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-muted-foreground text-sm">Select a parking spot to see booking details</p>
-                </div>
-              )}
-            </motion.div>
+        {filtered.length === 0 ? (
+          <div className="text-center py-16">
+            <Car className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
+            <p className="text-muted-foreground">No parking locations found. Try a different search.</p>
           </div>
-        </div>
+        ) : (
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {filtered.map(loc => (
+              <ParkingCard
+                key={loc.id}
+                id={loc.id}
+                name={loc.name}
+                address={loc.address}
+                price_per_hour={loc.price_per_hour}
+                image_url={loc.image_url}
+                images={loc.images || undefined}
+                distance={loc.distance !== null ? formatDistance(loc.distance) : undefined}
+                available_slots={loc.available_slots}
+                total_slots={loc.total_slots}
+                isSelected={selectedId === loc.id}
+                onClick={() => navigate(`/parking/${loc.id}`)}
+              />
+            ))}
+          </div>
+        )}
       </div>
       <Footer />
     </div>
