@@ -1,124 +1,129 @@
-import { useState } from "react";
-import { Search, MapPin, Calendar, Clock } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Search, MapPin, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
 
 const HeroSection = () => {
   const navigate = useNavigate();
   const [location, setLocation] = useState("");
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    const t = setTimeout(() => setLoaded(true), 100);
+    return () => clearTimeout(t);
+  }, []);
 
   return (
-    <section className="pt-28 pb-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-      <div className="grid lg:grid-cols-2 gap-12 items-center">
-        {/* Left Content */}
-        <div>
-          <div className="inline-flex items-center gap-2 bg-primary/10 text-primary text-sm font-medium px-4 py-1.5 rounded-full mb-6">
-            <span className="w-2 h-2 bg-primary rounded-full animate-pulse" />
-            Smart Parking Solution v2.0 Live
+    <section className="relative w-full h-screen overflow-hidden">
+      {/* Background Video */}
+      <video
+        autoPlay
+        muted
+        loop
+        playsInline
+        className="absolute inset-0 w-full h-full object-cover"
+        onLoadedData={() => setLoaded(true)}
+      >
+        <source src="/parking.mp4" type="video/mp4" />
+      </video>
+
+      {/* Dark Gradient Overlay */}
+      <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/50 to-black/80" />
+
+      {/* Content */}
+      <motion.div
+        initial={{ opacity: 0, y: 30 }}
+        animate={loaded ? { opacity: 1, y: 0 } : {}}
+        transition={{ duration: 1.2, ease: [0.22, 1, 0.36, 1] }}
+        className="relative z-10 flex flex-col items-center justify-center h-full px-4 sm:px-6 text-center"
+      >
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={loaded ? { opacity: 1, scale: 1 } : {}}
+          transition={{ delay: 0.3, duration: 0.8 }}
+          className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-md text-white text-sm font-medium px-5 py-2 rounded-full mb-8 border border-white/20"
+        >
+          <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+          Smart Parking Solution v2.0 Live
+        </motion.div>
+
+        <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold leading-[1.05] text-white max-w-4xl tracking-tight">
+          Find & Book{" "}
+          <span className="bg-gradient-to-r from-primary to-blue-400 bg-clip-text text-transparent">
+            Parking Slots
+          </span>{" "}
+          Instantly
+        </h1>
+
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={loaded ? { opacity: 1 } : {}}
+          transition={{ delay: 0.6, duration: 1 }}
+          className="mt-6 text-white/70 text-lg md:text-xl leading-relaxed max-w-2xl"
+        >
+          Save time and money by booking your parking spot in advance. Access thousands of secure locations with real-time availability.
+        </motion.p>
+
+        {/* Search Bar */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={loaded ? { opacity: 1, y: 0 } : {}}
+          transition={{ delay: 0.9, duration: 0.8 }}
+          className="mt-10 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-2 shadow-2xl w-full max-w-xl"
+        >
+          <div className="flex items-center gap-2 px-3 flex-1">
+            <MapPin className="w-4 h-4 text-white/50 shrink-0" />
+            <input
+              type="text"
+              placeholder="Where are you going?"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              className="bg-transparent text-sm outline-none w-full py-2.5 text-white placeholder:text-white/40"
+            />
           </div>
-
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold leading-tight">
-            Find & Book{" "}
-            <span className="text-primary">Parking Slots</span>{" "}
-            Easily
-          </h1>
-
-          <p className="mt-6 text-muted-foreground text-lg leading-relaxed max-w-lg">
-            Save time and money by booking your parking spot in advance. Access thousands of secure parking locations across the city with real-time availability.
-          </p>
-
-          {/* Search Bar */}
-          <div className="mt-8 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 bg-card border border-border rounded-2xl p-2 shadow-lg max-w-xl">
-            <div className="flex items-center gap-2 px-3 flex-1">
-              <MapPin className="w-4 h-4 text-muted-foreground shrink-0" />
-              <input
-                type="text"
-                placeholder="Where are you going"
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                className="bg-transparent text-sm outline-none w-full py-2 placeholder:text-muted-foreground"
-              />
-            </div>
-            <div className="flex items-center gap-2 px-3 border-l border-border">
-              <Calendar className="w-4 h-4 text-muted-foreground" />
-              <span className="text-sm text-muted-foreground">Now</span>
-            </div>
-            <Button
-              onClick={() => navigate(`/drive?lot=${encodeURIComponent(location || "Central Plaza")}`)}
-              className="bg-primary text-primary-foreground rounded-xl px-6 gap-2"
-            >
-              Search <Search className="w-4 h-4" />
-            </Button>
+          <div className="hidden sm:flex items-center gap-2 px-3 border-l border-white/20">
+            <Calendar className="w-4 h-4 text-white/50" />
+            <span className="text-sm text-white/50">Now</span>
           </div>
+          <Button
+            onClick={() =>
+              navigate(`/drive?lot=${encodeURIComponent(location || "Central Plaza")}`)
+            }
+            className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl px-6 gap-2 shadow-lg shadow-primary/30"
+          >
+            Search <Search className="w-4 h-4" />
+          </Button>
+        </motion.div>
 
-          {/* Social Proof */}
-          <div className="mt-6 flex items-center gap-3">
-            <div className="flex -space-x-2">
-              {[1, 2, 3, 4].map((i) => (
-                <div
-                  key={i}
-                  className="w-8 h-8 rounded-full bg-muted border-2 border-background flex items-center justify-center text-xs font-medium text-muted-foreground"
-                >
-                  {String.fromCharCode(64 + i)}
-                </div>
-              ))}
-              <div className="w-8 h-8 rounded-full bg-primary/20 border-2 border-background flex items-center justify-center text-xs font-medium text-primary">
-                +2k
+        {/* Social Proof */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={loaded ? { opacity: 1 } : {}}
+          transition={{ delay: 1.2, duration: 0.8 }}
+          className="mt-8 flex items-center gap-3"
+        >
+          <div className="flex -space-x-2">
+            {[1, 2, 3, 4].map((i) => (
+              <div
+                key={i}
+                className="w-8 h-8 rounded-full bg-white/20 backdrop-blur border-2 border-white/30 flex items-center justify-center text-xs font-medium text-white"
+              >
+                {String.fromCharCode(64 + i)}
               </div>
-            </div>
-            <span className="text-sm text-muted-foreground">
-              <strong className="text-foreground">4.9/5</strong> rating from happy drivers
-            </span>
-          </div>
-        </div>
-
-        {/* Right - Parking Card */}
-        <div className="relative hidden lg:block">
-          <div className="bg-card border border-border rounded-2xl shadow-2xl p-6 max-w-sm ml-auto">
-            {/* Price Tags */}
-            <div className="relative h-48 bg-muted rounded-xl mb-4 overflow-hidden">
-              <div className="absolute top-4 left-4 bg-primary text-primary-foreground text-xs font-semibold px-3 py-1 rounded-full">
-                $4.50/h
-              </div>
-              <div className="absolute top-16 right-4 bg-card text-foreground text-xs font-semibold px-3 py-1 rounded-full border border-border shadow">
-                $5.20/h
-              </div>
-              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-card/80 backdrop-blur-sm rounded-lg p-2 flex items-center gap-2">
-                <div className="w-6 h-6 bg-primary rounded-full flex items-center justify-center">
-                  <MapPin className="w-3 h-3 text-white" />
-                </div>
-              </div>
-            </div>
-            {/* Garage Info */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center">
-                  <span className="text-white font-bold text-sm">P</span>
-                </div>
-                <div>
-                  <p className="font-semibold text-sm">Central Plaza Garage</p>
-                  <p className="text-xs text-muted-foreground">0.2 miles away • 15 spots left</p>
-                </div>
-              </div>
-              <Button size="sm" className="bg-primary text-primary-foreground rounded-lg text-xs px-4">
-                Book
-              </Button>
+            ))}
+            <div className="w-8 h-8 rounded-full bg-primary/30 border-2 border-primary/50 flex items-center justify-center text-xs font-medium text-primary-foreground">
+              +2k
             </div>
           </div>
+          <span className="text-sm text-white/60">
+            <strong className="text-white">4.9/5</strong> rating from happy drivers
+          </span>
+        </motion.div>
+      </motion.div>
 
-          {/* Floating Available Badge */}
-          <div className="absolute -bottom-4 -left-4 bg-card border border-border rounded-xl p-4 shadow-lg">
-            <div className="flex items-center gap-2 mb-1">
-              <div className="w-5 h-5 bg-parking-available rounded-full flex items-center justify-center">
-                <span className="text-white text-xs">✓</span>
-              </div>
-              <span className="text-xs font-medium text-parking-available uppercase">Available</span>
-            </div>
-            <p className="text-3xl font-bold text-foreground">248</p>
-            <p className="text-xs text-muted-foreground">Spots nearby right now</p>
-          </div>
-        </div>
-      </div>
+      {/* Bottom Fade */}
+      <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-background to-transparent" />
     </section>
   );
 };
