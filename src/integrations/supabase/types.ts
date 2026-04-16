@@ -78,6 +78,7 @@ export type Database = {
           created_at: string
           id: string
           image_url: string | null
+          images: string[] | null
           is_active: boolean
           lat: number | null
           lng: number | null
@@ -93,6 +94,7 @@ export type Database = {
           created_at?: string
           id?: string
           image_url?: string | null
+          images?: string[] | null
           is_active?: boolean
           lat?: number | null
           lng?: number | null
@@ -108,6 +110,7 @@ export type Database = {
           created_at?: string
           id?: string
           image_url?: string | null
+          images?: string[] | null
           is_active?: boolean
           lat?: number | null
           lng?: number | null
