@@ -8,6 +8,7 @@ import { motion } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import ParkingMap from "@/components/map/ParkingMap";
 
 interface ParkingSlot {
   id: string;
@@ -21,6 +22,8 @@ interface ParkingLocation {
   name: string;
   address: string;
   price_per_hour: number;
+  lat: number | null;
+  lng: number | null;
 }
 
 const FindParking = () => {
@@ -38,7 +41,7 @@ const FindParking = () => {
 
   useEffect(() => {
     const fetchLocations = async () => {
-      const { data } = await supabase.from("parking_locations").select("id, name, address, price_per_hour").eq("is_active", true);
+      const { data } = await supabase.from("parking_locations").select("id, name, address, price_per_hour, lat, lng").eq("is_active", true);
       if (data && data.length > 0) {
         setLocations(data);
         const match = lotName ? data.find(l => l.name === lotName) : data[0];
@@ -165,7 +168,14 @@ const FindParking = () => {
         </motion.div>
 
         <div className="grid lg:grid-cols-3 gap-10">
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-2 space-y-6">
+            {/* Map */}
+            <ParkingMap
+              locations={locations}
+              selectedLocationId={selectedLocation?.id}
+              onLocationSelect={(loc) => { setSelectedLocation(loc); setSelectedSlot(null); }}
+              className="h-[300px]"
+            />
             {slots.length > 0 ? (
               <div className="grid grid-cols-4 sm:grid-cols-5 gap-4">
                 {slots.map((slot, i) => (
