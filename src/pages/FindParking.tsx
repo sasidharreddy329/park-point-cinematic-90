@@ -168,7 +168,14 @@ const FindParking = () => {
         </motion.div>
 
         <div className="grid lg:grid-cols-3 gap-10">
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-2 space-y-6">
+            {/* Map */}
+            <ParkingMap
+              locations={locations}
+              selectedLocationId={selectedLocation?.id}
+              onLocationSelect={(loc) => { setSelectedLocation(loc); setSelectedSlot(null); }}
+              className="h-[300px]"
+            />
             {slots.length > 0 ? (
               <div className="grid grid-cols-4 sm:grid-cols-5 gap-4">
                 {slots.map((slot, i) => (
