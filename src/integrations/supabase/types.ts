@@ -207,6 +207,23 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      create_booking: {
+        Args: {
+          _end_time: string
+          _location_id: string
+          _slot_id: string
+          _start_time: string
+          _total_price: number
+          _vehicle_number?: string
+        }
+        Returns: string
+      }
+      get_unavailable_slots: {
+        Args: { _end_time: string; _location_id: string; _start_time: string }
+        Returns: {
+          slot_id: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
