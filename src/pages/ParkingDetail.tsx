@@ -1,12 +1,13 @@
 import { useState, useEffect, useMemo } from "react";
-import { useParams, useNavigate, useSearchParams } from "react-router-dom";
-import { MapPin, Car, ChevronLeft, ChevronRight, Navigation, X } from "lucide-react";
+import { useParams, useNavigate, useSearchParams, useLocation as useRouterLocation } from "react-router-dom";
+import { MapPin, Car, ChevronLeft, ChevronRight, Navigation, X, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import ParkingMap from "@/components/map/ParkingMap";
 import RouteMap from "@/components/map/RouteMap";
 import DateTimePicker from "@/components/booking/DateTimePicker";
+import ReviewSection from "@/components/reviews/ReviewSection";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGeolocation } from "@/hooks/useGeolocation";
@@ -24,6 +25,7 @@ interface ParkingSlot {
 const ParkingDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const routerLocation = useRouterLocation();
   const [searchParams] = useSearchParams();
   const { user } = useAuth();
   const { position } = useGeolocation();
@@ -201,51 +203,85 @@ const ParkingDetail = () => {
             </div>
           </div>
 
-          {/* Right: Booking Panel */}
+          {/* Right: Booking Panel (only for logged-in users) */}
           <div className="lg:col-span-2">
-            <div className="bg-card border border-border rounded-2xl p-6 sticky top-24 space-y-5">
-              <h2 className="text-xl font-bold text-foreground">Book This Spot</h2>
+            {user ? (
+              <div className="bg-card border border-border rounded-2xl p-6 sticky top-24 space-y-5">
+                <h2 className="text-xl font-bold text-foreground">Book This Spot</h2>
 
-              <DateTimePicker
-                date={date} startHour={startHour} duration={duration}
-                onDateChange={setDate} onStartHourChange={setStartHour} onDurationChange={setDuration}
-              />
+                <DateTimePicker
+                  date={date} startHour={startHour} duration={duration}
+                  onDateChange={setDate} onStartHourChange={setStartHour} onDurationChange={setDuration}
+                />
 
-              <div>
-                <label className="text-xs text-muted-foreground mb-1.5 block">Vehicle number (optional)</label>
-                <input value={vehicle} onChange={(e) => setVehicle(e.target.value)} placeholder="ABC-1234"
-                  className="w-full bg-background border border-border rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/20 text-foreground" />
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1.5 block">Vehicle number (optional)</label>
+                  <input value={vehicle} onChange={(e) => setVehicle(e.target.value)} placeholder="ABC-1234"
+                    className="w-full bg-background border border-border rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/20 text-foreground" />
+                </div>
+
+                <div className="border-t border-border pt-4 space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Spot</span>
+                    <span className="font-medium text-foreground">{selected?.slot_label || "—"}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">When</span>
+                    <span className="text-foreground text-xs text-right">{formatTimeRange(startDate, endDate)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Rate</span>
+                    <span>${location.price_per_hour}/hr × {duration}h</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Service Fee</span>
+                    <span>$1.00</span>
+                  </div>
+                  <div className="border-t border-border pt-3 flex justify-between items-center">
+                    <span className="font-semibold text-foreground">Total</span>
+                    <span className="text-2xl font-bold text-primary">${total}</span>
+                  </div>
+                </div>
+
+                <Button onClick={handleBook} disabled={booking || !selectedSlot}
+                  className="w-full rounded-xl py-3 h-auto font-semibold text-base">
+                  {booking ? "Booking..." : !selectedSlot ? "Select a spot" : "Confirm Booking →"}
+                </Button>
               </div>
-
-              <div className="border-t border-border pt-4 space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Spot</span>
-                  <span className="font-medium text-foreground">{selected?.slot_label || "—"}</span>
+            ) : (
+              <div className="bg-card border border-border rounded-2xl p-6 sticky top-24 text-center space-y-4">
+                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
+                  <Lock className="w-5 h-5 text-primary" />
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">When</span>
-                  <span className="text-foreground text-xs text-right">{formatTimeRange(startDate, endDate)}</span>
+                <div>
+                  <h3 className="font-bold text-foreground">Login to Book</h3>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    You need an account to reserve a parking spot at this location.
+                  </p>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Rate</span>
-                  <span>${location.price_per_hour}/hr × {duration}h</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Service Fee</span>
-                  <span>$1.00</span>
-                </div>
-                <div className="border-t border-border pt-3 flex justify-between items-center">
-                  <span className="font-semibold text-foreground">Total</span>
-                  <span className="text-2xl font-bold text-primary">${total}</span>
+                <div className="space-y-2">
+                  <Button
+                    onClick={() => navigate(`/login?redirect=${encodeURIComponent(routerLocation.pathname + routerLocation.search)}`)}
+                    className="w-full rounded-xl"
+                  >
+                    Login to Book
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => navigate(`/signup?redirect=${encodeURIComponent(routerLocation.pathname + routerLocation.search)}`)}
+                    className="w-full rounded-xl"
+                  >
+                    Create an account
+                  </Button>
                 </div>
               </div>
-
-              <Button onClick={handleBook} disabled={booking || !selectedSlot}
-                className="w-full rounded-xl py-3 h-auto font-semibold text-base">
-                {booking ? "Booking..." : !selectedSlot ? "Select a spot" : user ? "Confirm Booking →" : "Log In to Book →"}
-              </Button>
-            </div>
+            )}
           </div>
+        </div>
+
+        {/* Reviews — visible to everyone */}
+        <div className="mt-12 max-w-3xl">
+          <ReviewSection locationId={location.id} />
         </div>
       </div>
 
