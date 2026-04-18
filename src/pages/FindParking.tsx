@@ -195,7 +195,7 @@ const FindParking = () => {
               {popular.map(p => (
                 <button
                   key={p.id}
-                  onClick={() => goToBooking(p.id)}
+                  onClick={() => goToBooking(p.id, p.name)}
                   className="px-3 py-1.5 text-xs rounded-full border border-border text-foreground hover:border-primary/40 hover:bg-primary/5 transition-colors"
                 >
                   🅿️ {p.name} — {p.city}
@@ -267,7 +267,7 @@ const FindParking = () => {
                 available_slots={loc.available_slots}
                 total_slots={loc.total_slots}
                 isSelected={selectedId === loc.id}
-                onClick={() => goToBooking(loc.id)}
+                onClick={() => goToBooking(loc.id, loc.name)}
               />
             ))}
           </div>
