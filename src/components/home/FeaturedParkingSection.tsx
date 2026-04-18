@@ -85,6 +85,7 @@ const FeaturedParkingSection = () => {
               </Button>
             </div>
           </div>
+          </Reveal>
         ))}
       </div>
     </section>
