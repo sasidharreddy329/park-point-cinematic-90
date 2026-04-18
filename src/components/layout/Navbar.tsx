@@ -5,9 +5,8 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 
 const navLinks = [
+  { label: "Home", href: "/" },
   { label: "Find Parking", href: "/find-parking" },
-  { label: "How it Works", href: "/#how-it-works" },
-  { label: "Pricing", href: "/#pricing" },
 ];
 
 const Navbar = () => {

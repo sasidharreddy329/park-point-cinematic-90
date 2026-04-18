@@ -6,6 +6,8 @@ const CarTransition = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const lotName = searchParams.get("lot") || "Parking Garage";
+  // Optional explicit destination after the animation completes
+  const to = searchParams.get("to");
   const [phase, setPhase] = useState(0); // 0=enter, 1=drive, 2=gate, 3=park, 4=fade
 
   useEffect(() => {
@@ -19,13 +21,17 @@ const CarTransition = () => {
         }, timings[p]);
       } else {
         timeout = window.setTimeout(() => {
-          navigate(`/find-parking?lot=${encodeURIComponent(lotName)}`);
+          if (to) {
+            navigate(decodeURIComponent(to));
+          } else {
+            navigate(`/find-parking?lot=${encodeURIComponent(lotName)}`);
+          }
         }, timings[4]);
       }
     };
     advance(0);
     return () => clearTimeout(timeout);
-  }, [navigate, lotName]);
+  }, [navigate, lotName, to]);
 
   return (
     <div className="fixed inset-0 z-[100] bg-gradient-to-b from-[hsl(220,20%,95%)] to-[hsl(220,14%,88%)] overflow-hidden">
