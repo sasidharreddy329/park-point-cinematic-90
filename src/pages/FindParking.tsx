@@ -34,6 +34,7 @@ const FindParking = () => {
   const [locations, setLocations] = useState<ParkingLocation[]>([]);
   const [popular, setPopular] = useState<ParkingLocation[]>([]);
   const [availableMap, setAvailableMap] = useState<Record<string, number>>({});
+  const [reviewStats, setReviewStats] = useState<Record<string, { avg: number; count: number }>>({});
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [search, setSearch] = useState(searchParams.get("q") || "");
   const [showFilters, setShowFilters] = useState(false);
@@ -61,7 +62,7 @@ const FindParking = () => {
     fetchLocations();
   }, []);
 
-  // Popular = top 6 highest-rated locations
+  // Popular = top 6 highest-rated locations + compute review stats for cards
   useEffect(() => {
     const fetchPopular = async () => {
       if (locations.length === 0) return;
@@ -73,6 +74,10 @@ const FindParking = () => {
         cur.count += 1;
         stats.set(r.location_id, cur);
       });
+      const statsObj: Record<string, { avg: number; count: number }> = {};
+      stats.forEach((v, k) => { statsObj[k] = { avg: v.sum / v.count, count: v.count }; });
+      setReviewStats(statsObj);
+
       const ranked = locations
         .map((l) => {
           const s = stats.get(l.id);
@@ -266,6 +271,8 @@ const FindParking = () => {
                 distance={loc.distance !== null ? formatDistance(loc.distance) : undefined}
                 available_slots={loc.available_slots}
                 total_slots={loc.total_slots}
+                avg_rating={reviewStats[loc.id]?.avg}
+                review_count={reviewStats[loc.id]?.count}
                 isSelected={selectedId === loc.id}
                 onClick={() => goToBooking(loc.id, loc.name)}
               />
