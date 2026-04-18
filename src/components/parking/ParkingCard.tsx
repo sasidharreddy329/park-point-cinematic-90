@@ -1,4 +1,4 @@
-import { MapPin, Car } from "lucide-react";
+import { MapPin, Car, Star } from "lucide-react";
 import { motion } from "framer-motion";
 
 interface ParkingCardProps {
@@ -11,13 +11,15 @@ interface ParkingCardProps {
   distance?: string;
   available_slots?: number;
   total_slots?: number;
+  avg_rating?: number;
+  review_count?: number;
   isSelected?: boolean;
   onClick?: () => void;
 }
 
 const ParkingCard = ({
   name, address, price_per_hour, image_url, images, distance,
-  available_slots, total_slots, isSelected, onClick
+  available_slots, total_slots, avg_rating, review_count, isSelected, onClick
 }: ParkingCardProps) => {
   const thumbnail = images?.[0] || image_url || "/placeholder.svg";
 
@@ -31,8 +33,15 @@ const ParkingCard = ({
           : "border-border hover:border-primary/30"
       }`}
     >
-      <div className="aspect-video bg-muted overflow-hidden">
+      <div className="aspect-video bg-muted overflow-hidden relative">
         <img src={thumbnail} alt={name} className="w-full h-full object-cover" loading="lazy" />
+        {typeof avg_rating === "number" && review_count && review_count > 0 && (
+          <div className="absolute top-2 right-2 flex items-center gap-1 bg-background/95 backdrop-blur px-2 py-1 rounded-full shadow-sm border border-border">
+            <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
+            <span className="text-xs font-semibold text-foreground">{avg_rating.toFixed(1)}</span>
+            <span className="text-xs text-muted-foreground">({review_count})</span>
+          </div>
+        )}
       </div>
       <div className="p-4 space-y-2">
         <h3 className="font-semibold text-foreground text-sm line-clamp-1">{name}</h3>
