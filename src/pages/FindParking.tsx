@@ -57,11 +57,34 @@ const FindParking = () => {
         .eq("is_active", true);
       const list = (data as ParkingLocation[]) || [];
       setLocations(list);
-      // popular = first 4 by id (or could be ordered by bookings)
-      setPopular(list.slice(0, 4));
     };
     fetchLocations();
   }, []);
+
+  // Popular = top 6 highest-rated locations
+  useEffect(() => {
+    const fetchPopular = async () => {
+      if (locations.length === 0) return;
+      const { data: revs } = await supabase.from("reviews").select("location_id, rating");
+      const stats = new Map<string, { sum: number; count: number }>();
+      (revs || []).forEach((r: any) => {
+        const cur = stats.get(r.location_id) || { sum: 0, count: 0 };
+        cur.sum += r.rating;
+        cur.count += 1;
+        stats.set(r.location_id, cur);
+      });
+      const ranked = locations
+        .map((l) => {
+          const s = stats.get(l.id);
+          return { loc: l, avg: s ? s.sum / s.count : 0, count: s?.count || 0 };
+        })
+        .sort((a, b) => (b.avg !== a.avg ? b.avg - a.avg : b.count - a.count))
+        .slice(0, 6)
+        .map((r) => r.loc);
+      setPopular(ranked.length > 0 ? ranked : locations.slice(0, 6));
+    };
+    fetchPopular();
+  }, [locations]);
 
   // Compute true availability per location for selected time window
   useEffect(() => {
@@ -125,8 +148,9 @@ const FindParking = () => {
     return result;
   }, [enriched, search, maxPrice, maxDistance, onlyAvailable, position]);
 
-  const goToBooking = (locId: string) => {
-    navigate(`/parking/${locId}?date=${date}&hour=${startHour}&duration=${duration}`);
+  const goToBooking = (locId: string, lotName?: string) => {
+    const target = `/parking/${locId}?date=${date}&hour=${startHour}&duration=${duration}`;
+    navigate(`/drive?lot=${encodeURIComponent(lotName || "your spot")}&to=${encodeURIComponent(target)}`);
   };
 
   const mapLocations = filtered.map(l => ({
@@ -171,7 +195,7 @@ const FindParking = () => {
               {popular.map(p => (
                 <button
                   key={p.id}
-                  onClick={() => goToBooking(p.id)}
+                  onClick={() => goToBooking(p.id, p.name)}
                   className="px-3 py-1.5 text-xs rounded-full border border-border text-foreground hover:border-primary/40 hover:bg-primary/5 transition-colors"
                 >
                   🅿️ {p.name} — {p.city}
@@ -243,7 +267,7 @@ const FindParking = () => {
                 available_slots={loc.available_slots}
                 total_slots={loc.total_slots}
                 isSelected={selectedId === loc.id}
-                onClick={() => goToBooking(loc.id)}
+                onClick={() => goToBooking(loc.id, loc.name)}
               />
             ))}
           </div>

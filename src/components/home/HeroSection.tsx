@@ -30,7 +30,9 @@ const HeroSection = () => {
     params.set("date", date);
     params.set("hour", String(hour));
     params.set("duration", String(duration));
-    navigate(`/find-parking?${params.toString()}`);
+    const target = `/find-parking?${params.toString()}`;
+    // Trigger the car animation, then land on results
+    navigate(`/drive?lot=${encodeURIComponent(location || "your destination")}&to=${encodeURIComponent(target)}`);
   };
 
   return (
