@@ -1,4 +1,5 @@
 import { Clock, Shield, CreditCard } from "lucide-react";
+import Reveal from "@/components/Reveal";
 
 const features = [
   {
@@ -27,26 +28,25 @@ const features = [
 const FeaturesSection = () => {
   return (
     <section className="py-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto" id="features">
-      <div className="text-center mb-14">
+      <Reveal direction="up" className="text-center mb-14">
         <p className="section-label">WHY CHOOSE US</p>
         <h2 className="section-title">Smart parking made simple</h2>
         <p className="section-desc">
           We provide the technology to make your parking experience seamless from finding a spot to payment.
         </p>
-      </div>
+      </Reveal>
 
       <div className="grid md:grid-cols-3 gap-8">
-        {features.map((f) => (
-          <div
-            key={f.title}
-            className="bg-card border border-border rounded-2xl p-8 hover:shadow-lg transition-shadow"
-          >
-            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-5 ${f.color}`}>
-              <f.icon className="w-6 h-6" />
+        {features.map((f, i) => (
+          <Reveal key={f.title} direction="up" delay={i * 120}>
+            <div className="bg-card border border-border rounded-2xl p-8 hover:shadow-lg hover:-translate-y-1 transition-all duration-300 h-full">
+              <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-5 ${f.color}`}>
+                <f.icon className="w-6 h-6" />
+              </div>
+              <h3 className="text-xl font-bold text-foreground mb-3">{f.title}</h3>
+              <p className="text-muted-foreground text-sm leading-relaxed">{f.description}</p>
             </div>
-            <h3 className="text-xl font-bold text-foreground mb-3">{f.title}</h3>
-            <p className="text-muted-foreground text-sm leading-relaxed">{f.description}</p>
-          </div>
+          </Reveal>
         ))}
       </div>
     </section>
