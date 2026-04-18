@@ -1,3 +1,5 @@
+import Reveal from "@/components/Reveal";
+
 const steps = [
   {
     num: "1",
@@ -21,7 +23,7 @@ const HowItWorksSection = () => {
     <section className="py-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto" id="how-it-works">
       <div className="grid lg:grid-cols-2 gap-16 items-center">
         {/* Left Content */}
-        <div>
+        <Reveal direction="right">
           <p className="section-label">HOW IT WORKS</p>
           <h2 className="section-title">Get parked in 3 simple steps</h2>
           <p className="text-muted-foreground mt-4 max-w-md text-base leading-relaxed">
@@ -29,22 +31,24 @@ const HowItWorksSection = () => {
           </p>
 
           <div className="mt-10 space-y-8">
-            {steps.map((step) => (
-              <div key={step.num} className="flex gap-5">
-                <div className="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-lg shrink-0">
-                  {step.num}
+            {steps.map((step, i) => (
+              <Reveal key={step.num} direction="up" delay={150 + i * 120}>
+                <div className="flex gap-5">
+                  <div className="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-lg shrink-0">
+                    {step.num}
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-lg text-foreground">{step.title}</h3>
+                    <p className="text-muted-foreground text-sm mt-1 leading-relaxed">{step.description}</p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="font-bold text-lg text-foreground">{step.title}</h3>
-                  <p className="text-muted-foreground text-sm mt-1 leading-relaxed">{step.description}</p>
-                </div>
-              </div>
+              </Reveal>
             ))}
           </div>
-        </div>
+        </Reveal>
 
         {/* Right - Phone Mockup */}
-        <div className="hidden lg:flex justify-center">
+        <Reveal direction="left" delay={150} className="hidden lg:flex justify-center">
           <div className="w-72 bg-card border border-border rounded-[2rem] p-3 shadow-2xl">
             <div className="bg-muted rounded-[1.5rem] overflow-hidden">
               <div className="p-5">
@@ -66,7 +70,7 @@ const HowItWorksSection = () => {
               </div>
             </div>
           </div>
-        </div>
+        </Reveal>
       </div>
     </section>
   );

@@ -1,6 +1,7 @@
 import { MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
+import Reveal from "@/components/Reveal";
 
 const lots = [
   {
@@ -46,14 +47,15 @@ const FeaturedParkingSection = () => {
 
   return (
     <section className="py-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-      <div className="text-center mb-14">
+      <Reveal direction="up" className="text-center mb-14">
         <p className="section-label">FEATURED</p>
         <h2 className="section-title">Popular Parking Locations</h2>
-      </div>
+      </Reveal>
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        {lots.map((lot) => (
-          <div key={lot.id} className="bg-card border border-border rounded-2xl overflow-hidden hover:shadow-lg transition-shadow group">
+        {lots.map((lot, i) => (
+          <Reveal key={lot.id} direction="up" delay={i * 100}>
+          <div className="bg-card border border-border rounded-2xl overflow-hidden hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group h-full">
             <div className={`${lot.color} h-36 flex items-center justify-center`}>
               <div className="w-14 h-14 bg-white/10 backdrop-blur rounded-xl flex items-center justify-center">
                 <span className="text-white font-bold text-xl">P</span>
@@ -83,6 +85,7 @@ const FeaturedParkingSection = () => {
               </Button>
             </div>
           </div>
+          </Reveal>
         ))}
       </div>
     </section>
