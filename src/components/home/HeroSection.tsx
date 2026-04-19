@@ -1,12 +1,20 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Search, MapPin, Calendar, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
+import { motion, useScroll, useTransform } from "framer-motion";
 import { today, maxDate, HOURS } from "@/lib/booking";
 
 const HeroSection = () => {
   const navigate = useNavigate();
+  const sectionRef = useRef<HTMLElement>(null);
+  const { scrollY } = useScroll();
+  // Subtle parallax: background drifts down slower than scroll, content drifts up faster
+  const bgY = useTransform(scrollY, [0, 800], ["0%", "30%"]);
+  const bgScale = useTransform(scrollY, [0, 800], [1.05, 1.18]);
+  const overlayOpacity = useTransform(scrollY, [0, 600], [1, 1.25]);
+  const contentY = useTransform(scrollY, [0, 600], ["0px", "-80px"]);
+  const contentOpacity = useTransform(scrollY, [0, 500], [1, 0]);
   const [location, setLocation] = useState("");
   const [date, setDate] = useState(today());
   const [hour, setHour] = useState((new Date().getHours() + 1) % 24);
@@ -36,16 +44,25 @@ const HeroSection = () => {
   };
 
   return (
-    <section className="relative w-full h-screen overflow-hidden">
-      <video autoPlay muted loop playsInline
-        className="absolute inset-0 w-full h-full object-cover"
-        onLoadedData={() => setLoaded(true)}>
-        <source src="/parking.mp4" type="video/mp4" />
-      </video>
-
-      <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/50 to-black/80" />
+    <section ref={sectionRef} className="relative w-full h-screen overflow-hidden">
+      <motion.div
+        style={{ y: bgY, scale: bgScale }}
+        className="absolute inset-0 will-change-transform"
+      >
+        <video autoPlay muted loop playsInline
+          className="absolute inset-0 w-full h-full object-cover"
+          onLoadedData={() => setLoaded(true)}>
+          <source src="/parking.mp4" type="video/mp4" />
+        </video>
+      </motion.div>
 
       <motion.div
+        style={{ opacity: overlayOpacity }}
+        className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/50 to-black/80"
+      />
+
+      <motion.div
+        style={{ y: contentY, opacity: contentOpacity }}
         initial={{ opacity: 0, y: 30 }} animate={loaded ? { opacity: 1, y: 0 } : {}}
         transition={{ duration: 1.2, ease: [0.22, 1, 0.36, 1] }}
         className="relative z-10 flex flex-col items-center justify-center h-full px-4 sm:px-6 text-center"
