@@ -44,16 +44,25 @@ const HeroSection = () => {
   };
 
   return (
-    <section className="relative w-full h-screen overflow-hidden">
-      <video autoPlay muted loop playsInline
-        className="absolute inset-0 w-full h-full object-cover"
-        onLoadedData={() => setLoaded(true)}>
-        <source src="/parking.mp4" type="video/mp4" />
-      </video>
-
-      <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/50 to-black/80" />
+    <section ref={sectionRef} className="relative w-full h-screen overflow-hidden">
+      <motion.div
+        style={{ y: bgY, scale: bgScale }}
+        className="absolute inset-0 will-change-transform"
+      >
+        <video autoPlay muted loop playsInline
+          className="absolute inset-0 w-full h-full object-cover"
+          onLoadedData={() => setLoaded(true)}>
+          <source src="/parking.mp4" type="video/mp4" />
+        </video>
+      </motion.div>
 
       <motion.div
+        style={{ opacity: overlayOpacity }}
+        className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/50 to-black/80"
+      />
+
+      <motion.div
+        style={{ y: contentY, opacity: contentOpacity }}
         initial={{ opacity: 0, y: 30 }} animate={loaded ? { opacity: 1, y: 0 } : {}}
         transition={{ duration: 1.2, ease: [0.22, 1, 0.36, 1] }}
         className="relative z-10 flex flex-col items-center justify-center h-full px-4 sm:px-6 text-center"
