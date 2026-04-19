@@ -1,12 +1,20 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Search, MapPin, Calendar, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
+import { motion, useScroll, useTransform } from "framer-motion";
 import { today, maxDate, HOURS } from "@/lib/booking";
 
 const HeroSection = () => {
   const navigate = useNavigate();
+  const sectionRef = useRef<HTMLElement>(null);
+  const { scrollY } = useScroll();
+  // Subtle parallax: background drifts down slower than scroll, content drifts up faster
+  const bgY = useTransform(scrollY, [0, 800], ["0%", "30%"]);
+  const bgScale = useTransform(scrollY, [0, 800], [1.05, 1.18]);
+  const overlayOpacity = useTransform(scrollY, [0, 600], [1, 1.25]);
+  const contentY = useTransform(scrollY, [0, 600], ["0px", "-80px"]);
+  const contentOpacity = useTransform(scrollY, [0, 500], [1, 0]);
   const [location, setLocation] = useState("");
   const [date, setDate] = useState(today());
   const [hour, setHour] = useState((new Date().getHours() + 1) % 24);
