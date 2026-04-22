@@ -1,5 +1,4 @@
 import { Link } from "react-router-dom";
-import logo from "@/assets/parkpoint-logo.png";
 
 const Footer = () => {
   return (
@@ -9,7 +8,9 @@ const Footer = () => {
           {/* Brand */}
           <div>
             <div className="flex items-center gap-2.5 mb-4">
-              <img src={logo} alt="ParkPoint logo" className="w-9 h-9 object-contain bg-white rounded-lg p-0.5" />
+              <div className="w-9 h-9 bg-primary rounded-lg flex items-center justify-center">
+                <span className="text-white font-bold text-lg">P</span>
+              </div>
               <span className="font-bold text-xl">
                 Park<span className="text-blue-400">Point</span>
               </span>
