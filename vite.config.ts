@@ -21,9 +21,22 @@ export default defineConfig(({ mode }) => {
   const SUPABASE_PROJECT_ID =
     env.VITE_SUPABASE_PROJECT_ID || FALLBACK_SUPABASE_PROJECT_ID;
 
+  // Base path resolution:
+  // - GitHub Pages project sites are served from /<repo-name>/, so we need a matching base.
+  // - Set VITE_BASE_PATH (e.g. "/park-point-cinematic-90/") in your GitHub Actions build step,
+  //   OR rely on the auto-detected GITHUB_REPOSITORY env var that Actions sets for free.
+  // - Render / Netlify / Vercel / Lovable serve from the root, so base stays "/".
+  let base = env.VITE_BASE_PATH || "/";
+  if (!env.VITE_BASE_PATH && process.env.GITHUB_ACTIONS && process.env.GITHUB_REPOSITORY) {
+    const repo = process.env.GITHUB_REPOSITORY.split("/")[1];
+    // user.github.io repos are served from root; project repos from /<repo>/.
+    if (repo && !repo.endsWith(".github.io")) {
+      base = `/${repo}/`;
+    }
+  }
+
   return {
-    // Use relative base so the build works on GitHub Pages subpaths and any static host.
-    base: "./",
+    base,
     server: {
       host: "::",
       port: 8080,
