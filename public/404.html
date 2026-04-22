@@ -5,7 +5,8 @@
     <title>Park Point</title>
     <script>
       // GitHub Pages SPA redirect: rewrite the path into a query string so index.html can restore it.
-      var pathSegmentsToKeep = 0;
+      // Set to 1 for GitHub Pages project sites (served from /<repo>/), 0 for root domains.
+      var pathSegmentsToKeep = 1;
       var l = window.location;
       l.replace(
         l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') +
