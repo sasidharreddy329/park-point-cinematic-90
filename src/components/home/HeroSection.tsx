@@ -67,15 +67,6 @@ const HeroSection = () => {
         transition={{ duration: 1.2, ease: [0.22, 1, 0.36, 1] }}
         className="relative z-10 flex flex-col items-center justify-center h-full px-4 sm:px-6 text-center"
       >
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }} animate={loaded ? { opacity: 1, scale: 1 } : {}}
-          transition={{ delay: 0.3, duration: 0.8 }}
-          className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-md text-white text-sm font-medium px-5 py-2 rounded-full mb-8 border border-white/20"
-        >
-          <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-          Smart Parking Solution v2.0 Live
-        </motion.div>
-
         <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold leading-[1.05] text-white max-w-4xl tracking-tight">
           Find & Book{" "}
           <span className="bg-gradient-to-r from-primary to-blue-400 bg-clip-text text-transparent">
