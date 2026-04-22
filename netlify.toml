@@ -1,0 +1,13 @@
+# Netlify config — also useful as documentation for any static host.
+[build]
+  command = "npm install && npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "20.11.1"
+
+# SPA fallback so client-side routes (e.g. /find-parking) work on refresh.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

@@ -1,22 +1,48 @@
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
 
+// Public Supabase credentials (anon key + URL are safe to ship in client bundles).
+// These act as fallbacks so the app works on any host (GitHub Pages, Render, Vercel, Netlify…)
+// even when the host doesn't inject VITE_* env vars at build time.
+const FALLBACK_SUPABASE_URL = "https://zzadgoiwtgnxnlkjynol.supabase.co";
+const FALLBACK_SUPABASE_PUBLISHABLE_KEY =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp6YWRnb2l3dGdueG5sa2p5bm9sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYyNDg5NTEsImV4cCI6MjA5MTgyNDk1MX0.zLAcMurGiNuEZBuylol2dlT5OR8Co6I_WdNLdrckVO8";
+const FALLBACK_SUPABASE_PROJECT_ID = "zzadgoiwtgnxnlkjynol";
+
 // https://vitejs.dev/config/
-export default defineConfig(({ mode }) => ({
-  server: {
-    host: "::",
-    port: 8080,
-    hmr: {
-      overlay: false,
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), "");
+
+  const SUPABASE_URL = env.VITE_SUPABASE_URL || FALLBACK_SUPABASE_URL;
+  const SUPABASE_PUBLISHABLE_KEY =
+    env.VITE_SUPABASE_PUBLISHABLE_KEY || FALLBACK_SUPABASE_PUBLISHABLE_KEY;
+  const SUPABASE_PROJECT_ID =
+    env.VITE_SUPABASE_PROJECT_ID || FALLBACK_SUPABASE_PROJECT_ID;
+
+  return {
+    // Use relative base so the build works on GitHub Pages subpaths and any static host.
+    base: "./",
+    server: {
+      host: "::",
+      port: 8080,
+      hmr: {
+        overlay: false,
+      },
     },
-  },
-  plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
-  resolve: {
-    alias: {
-      "@": path.resolve(__dirname, "./src"),
+    plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
+    resolve: {
+      alias: {
+        "@": path.resolve(__dirname, "./src"),
+      },
+      dedupe: ["react", "react-dom", "react/jsx-runtime", "react/jsx-dev-runtime", "@tanstack/react-query", "@tanstack/query-core"],
     },
-    dedupe: ["react", "react-dom", "react/jsx-runtime", "react/jsx-dev-runtime", "@tanstack/react-query", "@tanstack/query-core"],
-  },
-}));
+    define: {
+      // Inline env values so the production bundle never reads from a missing process.env.
+      "import.meta.env.VITE_SUPABASE_URL": JSON.stringify(SUPABASE_URL),
+      "import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY": JSON.stringify(SUPABASE_PUBLISHABLE_KEY),
+      "import.meta.env.VITE_SUPABASE_PROJECT_ID": JSON.stringify(SUPABASE_PROJECT_ID),
+    },
+  };
+});

@@ -1,0 +1,17 @@
+# Render.com deployment config for Park Point (Vite + React static site).
+# After connecting your GitHub repo on Render, choose "Static Site" and Render
+# will auto-detect this file.
+services:
+  - type: web
+    name: park-point
+    runtime: static
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./dist
+    routes:
+      # SPA fallback so deep links like /find-parking refresh correctly.
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: NODE_VERSION
+        value: 20.11.1
