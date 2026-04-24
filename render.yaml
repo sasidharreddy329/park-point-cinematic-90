@@ -3,7 +3,7 @@
 # will auto-detect this file.
 services:
   - type: web
-    name: park-point
+    name: parkpoint
     runtime: static
     buildCommand: npm install && npm run build
     staticPublishPath: ./dist
