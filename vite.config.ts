@@ -20,6 +20,7 @@ export default defineConfig(({ mode }) => {
     env.VITE_SUPABASE_PUBLISHABLE_KEY || FALLBACK_SUPABASE_PUBLISHABLE_KEY;
   const SUPABASE_PROJECT_ID =
     env.VITE_SUPABASE_PROJECT_ID || FALLBACK_SUPABASE_PROJECT_ID;
+  const previewPort = Number(process.env.PORT || env.PORT || 4173);
 
   // Base path resolution:
   // - GitHub Pages project sites are served from /<repo-name>/, so we need a matching base.
@@ -40,9 +41,15 @@ export default defineConfig(({ mode }) => {
     server: {
       host: "::",
       port: 8080,
+      allowedHosts: true,
       hmr: {
         overlay: false,
       },
+    },
+    preview: {
+      host: "::",
+      port: previewPort,
+      allowedHosts: true,
     },
     plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
     resolve: {
